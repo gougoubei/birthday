@@ -132,7 +132,6 @@
             padding: 10px;
             letter-spacing: 1px;
             font-family: "Microsoft YaHei", sans-serif;
-            /* 移除了粉色半透明背景 */
         }
 
         .final-text {
@@ -152,6 +151,41 @@
             font-size: 22px;
             color: white;
         }
+
+        .music-control {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+        }
+
+        .music-control:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: scale(1.1);
+        }
+
+        .music-icon {
+            font-size: 20px;
+            color: #FF69B4;
+        }
+
+        .music-control.muted .music-icon::before {
+            content: "🔇";
+        }
+
+        .music-control:not(.muted) .music-icon::before {
+            content: "🔊";
+        }
     </style>
 </head>
 <body>
@@ -169,7 +203,18 @@
     <div class="container">
         <canvas id="mainCanvas"></canvas>
         <div id="textDisplay" class="text-display hidden"></div>
+
+        <!-- 音乐控制按钮 -->
+        <div id="musicControl" class="music-control hidden">
+            <div class="music-icon"></div>
+        </div>
     </div>
+
+    <!-- 音频元素 -->
+    <audio id="bgm" loop>
+        <source src="bgm2.mp3" type="audio/mpeg">
+        您的浏览器不支持音频元素。
+    </audio>
 
     <script>
         // 获取DOM元素
@@ -178,6 +223,8 @@
         const ctx = mainCanvas.getContext('2d');
         const enterBtn = document.getElementById('enterBtn');
         const textDisplay = document.getElementById('textDisplay');
+        const bgm = document.getElementById('bgm');
+        const musicControl = document.getElementById('musicControl');
 
         // 设置Canvas尺寸
         mainCanvas.width = 400;
@@ -192,6 +239,55 @@
         let bgBubbles = [];
         let stopAnimations = false;
         let hasLiked = false; // 记录是否点击了喜欢
+        let isMusicPlaying = false;
+
+        // 音乐控制
+        function toggleMusic() {
+            if (isMusicPlaying) {
+                bgm.pause();
+                musicControl.classList.add('muted');
+            } else {
+                // 尝试播放音乐，处理可能的自动播放限制
+                const playPromise = bgm.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        musicControl.classList.remove('muted');
+                    }).catch(error => {
+                        console.log("自动播放被阻止:", error);
+                        // 显示提示，需要用户交互
+                        alert("请点击页面任意位置以启用背景音乐");
+                    });
+                }
+            }
+            isMusicPlaying = !isMusicPlaying;
+        }
+
+        // 初始化音乐
+        function initMusic() {
+            // 设置音乐音量
+            bgm.volume = 0.9;
+
+            // 添加音乐控制事件
+            musicControl.addEventListener('click', toggleMusic);
+
+            // 显示音乐控制按钮
+            musicControl.classList.remove('hidden');
+
+            // 尝试自动播放音乐（可能需要用户交互）
+            setTimeout(() => {
+                const playPromise = bgm.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        isMusicPlaying = true;
+                        musicControl.classList.remove('muted');
+                    }).catch(error => {
+                        console.log("自动播放被阻止，等待用户交互");
+                        isMusicPlaying = false;
+                        musicControl.classList.add('muted');
+                    });
+                }
+            }, 1000);
+        }
 
         // 泡泡类
         class Bubble {
@@ -279,8 +375,8 @@
 
                 textParticles.forEach(p => {
                     // 使用更小的缓动系数，使聚合更慢
-                    const dx = (p.tx - p.x) * 0.05;  // 从0.2改为0.08
-                    const dy = (p.ty - p.y) * 0.01;  // 从0.05改为0.02
+                    const dx = (p.tx - p.x) * 0.05;
+                    const dy = (p.ty - p.y) * 0.01;
                     p.x += dx;
                     p.y += dy;
 
@@ -531,6 +627,20 @@
             currentStage = 'main';
             animate();
             showTextSequence();
+            initMusic(); // 初始化音乐
+        });
+
+        // 添加页面点击事件以解决自动播放限制
+        document.addEventListener('click', function() {
+            if (!isMusicPlaying && currentStage !== 'start') {
+                const playPromise = bgm.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        isMusicPlaying = true;
+                        musicControl.classList.remove('muted');
+                    });
+                }
+            }
         });
     </script>
 </body>
