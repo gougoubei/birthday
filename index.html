@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生日快乐</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #87CEFA, #FFC0CB);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            width: 400px;
+            height: 300px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            background: rgba(135, 206, 250, 0.9);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        h1 {
+            color: white;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            color: white;
+            font-size: 18px;
+        }
+
+        .name-display {
+            padding: 8px 12px;
+            margin: 0 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 16px;
+            text-align: center;
+            width: 100px;
+            color: #1E90FF;
+            font-weight: bold;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: white;
+            color: #1E90FF;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .text-display {
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            width: 100%;
+        }
+
+        .sequence-text {
+            font-size: 36px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+            padding: 10px;
+            letter-spacing: 1px;
+            font-family: "Microsoft YaHei", sans-serif;
+            /* 移除了粉色半透明背景 */
+        }
+
+        .final-text {
+            font-size: 28px;
+            line-height: 1.4;
+        }
+
+        .happy-birthday {
+            font-size: 32px;
+            margin-bottom: 10px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            font-family: "Comic Sans MS", cursive;
+        }
+
+        .wish-text {
+            font-size: 22px;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- 初始屏幕 -->
+    <div id="startScreen" class="screen">
+        <h1>生日快乐 🎉</h1>
+        <div class="input-group">
+            <span>我的</span>
+            <div class="name-display">某某</div>
+        </div>
+        <button id="enterBtn">进入</button>
+    </div>
+
+    <!-- 主画布 -->
+    <div class="container">
+        <canvas id="mainCanvas"></canvas>
+        <div id="textDisplay" class="text-display hidden"></div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const startScreen = document.getElementById('startScreen');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        const enterBtn = document.getElementById('enterBtn');
+        const textDisplay = document.getElementById('textDisplay');
+
+        // 设置Canvas尺寸
+        mainCanvas.width = 400;
+        mainCanvas.height = 300;
+
+        // 状态变量
+        let bubbles = [];
+        let animationId;
+        let currentStage = 'start';
+        let textSequenceIndex = 0;
+        let textParticles = [];
+        let bgBubbles = [];
+        let stopAnimations = false;
+        let hasLiked = false; // 记录是否点击了喜欢
+
+        // 泡泡类
+        class Bubble {
+            constructor(x, y, size, color) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.speedX = Math.random() * 1 - 0.5;
+                this.speedY = Math.random() * -1 - 0.3;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                return this.y > -20;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // 创建泡泡
+        function createBubble() {
+            if (stopAnimations) return;
+
+            const x = Math.random() * 400;
+            const y = Math.random() * 50 + 250;
+            const size = Math.random() * 10 + 5;
+            const color = ['#fff', '#FFB6C1', '#FF69B4', '#FFD1DC'][Math.floor(Math.random() * 4)];
+
+            bubbles.push(new Bubble(x, y, size, color));
+        }
+
+        // 动画循环
+        function animate() {
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 绘制背景
+            if (currentStage === 'main') {
+                ctx.fillStyle = '#FFC0CB';
+                ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+            } else if (currentStage === 'like') {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+            }
+
+            // 更新和绘制泡泡
+            if (currentStage === 'main' || currentStage === 'like') {
+                bubbles = bubbles.filter(bubble => {
+                    bubble.update();
+                    bubble.draw();
+                    return bubble.y > -20;
+                });
+
+                if (currentStage === 'main') {
+                    createBubble();
+                }
+            }
+
+            // 更新和绘制背景泡泡（喜欢动画）
+            if (currentStage === 'like') {
+                bgBubbles = bgBubbles.filter(bubble => {
+                    bubble.update();
+                    bubble.draw();
+                    return bubble.y > -20;
+                });
+
+                if (Math.random() < 0.1) {
+                    const x = Math.random() * 400;
+                    const y = Math.random() * 50 + 250;
+                    const size = Math.random() * 10 + 5;
+                    const color = ['#fff', '#ffe4e1', '#ffc0cb'][Math.floor(Math.random() * 3)];
+                    bgBubbles.push(new Bubble(x, y, size, color));
+                }
+            }
+
+            // 绘制文字粒子
+            if (currentStage === 'like' && textParticles.length > 0) {
+                let allDone = true;
+
+                textParticles.forEach(p => {
+                    // 使用更小的缓动系数，使聚合更慢
+                    const dx = (p.tx - p.x) * 0.05;  // 从0.2改为0.08
+                    const dy = (p.ty - p.y) * 0.01;  // 从0.05改为0.02
+                    p.x += dx;
+                    p.y += dy;
+
+                    // 调整判断条件，使动画更平滑
+                    if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+                        allDone = false;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                });
+
+                if (allDone) {
+                    glowEffect();
+                }
+            }
+
+            if (!stopAnimations) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        // 文字序列动画
+        function showTextSequence() {
+            const texts = ["Hi 小公主 💕", "小朋友", "生日快乐🎂", "3", "2", "1"];
+            const delays = [1500, 1500, 1500, 800, 800, 800];
+
+            function showNext(index) {
+                if (stopAnimations) {
+                    textDisplay.classList.add('hidden');
+                    return;
+                }
+
+                if (index < texts.length) {
+                    textDisplay.innerHTML = `<div class="sequence-text">${texts[index]}</div>`;
+                    textDisplay.classList.remove('hidden');
+                    setTimeout(() => showNext(index + 1), delays[index]);
+                } else {
+                    textDisplay.classList.add('hidden');
+                    showFinalText();
+                }
+            }
+
+            showNext(0);
+        }
+
+        // 显示最终文本
+        function showFinalText() {
+            textDisplay.innerHTML = `
+                <div class="final-text">
+                    <div class="happy-birthday">🎉HAPPY BIRTHDAY🎉</div>
+                    <div class="wish-text">祝某某每一天都开开心心！🎂</div>
+                </div>
+            `;
+            textDisplay.classList.remove('hidden');
+
+            // 显示按钮
+            showButtons();
+        }
+
+        // 显示按钮
+        function showButtons() {
+            const buttonGroup = document.createElement('div');
+            buttonGroup.className = 'button-group';
+
+            const likeBtn = document.createElement('button');
+            likeBtn.textContent = '喜欢 💖';
+            likeBtn.onclick = onLike;
+
+            const dislikeBtn = document.createElement('button');
+            dislikeBtn.textContent = '不喜欢 💔';
+            dislikeBtn.onclick = onDislike;
+
+            buttonGroup.appendChild(likeBtn);
+            buttonGroup.appendChild(dislikeBtn);
+
+            textDisplay.appendChild(buttonGroup);
+        }
+
+        // 喜欢动画
+        function onLike() {
+            hasLiked = true; // 标记已点击喜欢
+
+            stopAnimations = true;
+            cancelAnimationFrame(animationId);
+
+            // 清除画布
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 隐藏文本
+            textDisplay.classList.add('hidden');
+
+            // 设置新状态
+            currentStage = 'like';
+            stopAnimations = false;
+
+            // 创建文字粒子
+            createTextParticles();
+
+            // 重新开始动画
+            animate();
+        }
+
+        // 创建文字粒子
+        function createTextParticles() {
+            const text = `某某生日快乐`;
+
+            // 创建离屏Canvas绘制文字
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = 400;
+            textCanvas.height = 300;
+            const textCtx = textCanvas.getContext('2d');
+
+            textCtx.font = 'bold 60px "Microsoft YaHei"';
+            textCtx.fillStyle = 'white';
+            textCtx.textAlign = 'center';
+            textCtx.textBaseline = 'middle';
+            textCtx.fillText(text, 200, 150);
+
+            // 获取文字像素数据
+            const imageData = textCtx.getImageData(0, 0, 400, 300);
+            const data = imageData.data;
+
+            // 收集文字像素点
+            const points = [];
+            for (let y = 0; y < 300; y++) {
+                for (let x = 0; x < 400; x++) {
+                    const index = (y * 400 + x) * 4;
+                    if (data[index + 3] > 128) { // 检查alpha通道
+                        points.push({x, y});
+                    }
+                }
+            }
+
+            // 随机选择部分点
+            const selectedPoints = [];
+            const maxPoints = Math.min(1800, points.length);
+            for (let i = 0; i < maxPoints; i++) {
+                const randomIndex = Math.floor(Math.random() * points.length);
+                selectedPoints.push(points[randomIndex]);
+                points.splice(randomIndex, 1);
+            }
+
+            // 创建粒子
+            textParticles = selectedPoints.map(point => {
+                const sx = Math.random() * 400;
+                const sy = Math.random() * 300;
+                const color = ['#ffb6c1', '#ffe4e1', '#fff0f5', '#ffc0cb'][Math.floor(Math.random() * 4)];
+
+                return {
+                    x: sx,
+                    y: sy,
+                    tx: point.x,
+                    ty: point.y,
+                    color: color
+                };
+            });
+        }
+
+        // 发光效果
+        function glowEffect(step = 0) {
+            if (step > 14) {
+                // 如果点击了喜欢，不显示返回按钮
+                if (!hasLiked) {
+                    showBackButton();
+                }
+                return;
+            }
+
+            const ratio = Math.abs(step - 7) / 7;
+            const r = 255;
+            const g = Math.floor(150 + 100 * ratio);
+            const b = Math.floor(255 - 80 * ratio);
+            const color = `rgb(${r}, ${g}, ${b})`;
+
+            textParticles.forEach(p => {
+                p.color = color;
+            });
+
+            setTimeout(() => glowEffect(step + 1), 100);
+        }
+
+        // 显示返回按钮
+        function showBackButton() {
+            const backBtn = document.createElement('button');
+            backBtn.textContent = '返回 🔙';
+            backBtn.style.position = 'absolute';
+            backBtn.style.bottom = '20px';
+            backBtn.style.left = '50%';
+            backBtn.style.transform = 'translateX(-50%)';
+            backBtn.onclick = resetScene;
+
+            document.querySelector('.container').appendChild(backBtn);
+        }
+
+        // 重置场景
+        function resetScene() {
+            // 如果已经点击了喜欢，不允许返回
+            if (hasLiked) return;
+
+            // 清除所有状态
+            stopAnimations = true;
+            cancelAnimationFrame(animationId);
+
+            bubbles = [];
+            textParticles = [];
+            bgBubbles = [];
+
+            // 清除画布
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 移除按钮
+            const backBtn = document.querySelector('.container button');
+            if (backBtn) backBtn.remove();
+
+            // 重置状态
+            currentStage = 'main';
+            stopAnimations = false;
+
+            // 重新开始动画
+            animate();
+
+            // 显示文本序列
+            showTextSequence();
+        }
+
+        // 不喜欢动画
+        function onDislike() {
+            stopAnimations = true;
+            cancelAnimationFrame(animationId);
+
+            // 清除画布
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 显示文本
+            textDisplay.innerHTML = '<div class="sequence-text">哼！不给蛋糕吃 🍰💔</div>';
+            textDisplay.classList.remove('hidden');
+
+            // 显示返回按钮
+            showBackButton();
+        }
+
+        // 进入主程序
+        enterBtn.addEventListener('click', () => {
+            startScreen.classList.add('hidden');
+            currentStage = 'main';
+            animate();
+            showTextSequence();
+        });
+    </script>
+</body>
+</html>
